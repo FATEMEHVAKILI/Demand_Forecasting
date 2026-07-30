@@ -245,10 +245,10 @@ def winsorize_outliers(df):
 
 
 def clean_base_data(df):
-    df = df .copy().rename(columns=RENAME_COLS)
-    if ORIGINAL_DATE_COL in df .columns:
-        df .rename(columns={ORIGINAL_DATE_COL: PERSIAN_DATE_COL}, inplace=True)
-    if PERSIAN_DATE_COL not in df .columns:
+    df = df.copy().rename(columns=RENAME_COLS)
+    if ORIGINAL_DATE_COL in df.columns:
+        df.rename(columns={ORIGINAL_DATE_COL: PERSIAN_DATE_COL}, inplace=True)
+    if PERSIAN_DATE_COL not in df.columns:
         raise ValueError("Date column not found.")
 
     df[PRODUCT_CODE_COL] = normalize_numeric_series(
@@ -258,14 +258,14 @@ def clean_base_data(df):
         df[QTY_COL] = df[QTY_COL].astype("Int64")
 
     for col in TEXT_FEATURES:
-        if col in df .columns:
-            df[col] = df[col].fillna("نامشخص").astype(str).str .strip()
+        if col in df.columns:
+            df[col] = df[col].fillna("نامشخص").astype(str).str.strip()
 
-    label_encoder = LabelEncoder()
     for col in LABEL_ENCODED_COLS:
-        if col in df .columns:
-            df[col] = label_encoder .fit_transform(
-                df[col].fillna("Unknown").astype(str).str .strip())
+        if col in df.columns:
+            clean_col = df[col].fillna("Unknown").astype(str).str.strip()
+            df[col], _ = pd.factorize(clean_col)
+
     return df
 
 
