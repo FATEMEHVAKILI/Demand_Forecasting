@@ -5,6 +5,7 @@ from sklearn.preprocessing import LabelEncoder
 
 INPUT_FILE = "Data.xlsx"
 OUTPUT_FILE = "ABC_Analysis.xlsx"
+WORKING_DAY_FILE = "WorkingDay.csv"
 
 ORIGINAL_DATE_COL = "تاریخ"
 PERSIAN_DATE_COL = "تاریخ شمسی"
@@ -77,7 +78,7 @@ def parse_persian_date(value):
 
 
 def clean_base_data(df):
-    print("\nStep 1: Cleaning base data...")
+    print("Step 1: Cleaning base data...")
     df = df.copy()
     df.rename(columns=RENAME_COLS, inplace=True)
     print("Renamed specific columns.")
@@ -95,6 +96,7 @@ def clean_base_data(df):
 
     df[PRODUCT_CODE_COL] = normalize_numeric_series(df[PRODUCT_CODE_COL])
     df[QTY_COL] = normalize_numeric_series(df[QTY_COL]).fillna(0)
+    print("Cleaned numeric columns.")
 
     df = df.dropna(subset=[PRODUCT_CODE_COL])
     df[PRODUCT_CODE_COL] = df[PRODUCT_CODE_COL].astype("Int64")
@@ -119,7 +121,7 @@ def clean_base_data(df):
 
 
 def add_date_features(df):
-    print("\nStep 2: Adding date features...")
+    print("Step 2: Adding date features...")
     df = df.copy()
 
     df[PERSIAN_DATE_COL] = (
@@ -165,8 +167,22 @@ def add_date_features(df):
     return df
 
 
+def add_working_day_features(df, working_day_file):
+    print("Step 3: Adding working day features...")
+    wd_df = pd.read_csv(working_day_file)
+    wd_df['Date'] = pd.to_datetime(wd_df['Date'], format='%d/%m/%Y')
+    df['تاریخ میلادی'] = pd.to_datetime(df['تاریخ میلادی'])
+    wd_df = wd_df.rename(columns={'WorkingDay': 'روز کاری'})
+    df = df.merge(wd_df[['Date', 'روز کاری']],
+                  left_on='تاریخ میلادی', right_on='Date', how='left')
+    df = df.drop(columns=['Date'])
+    df['روز کاری'] = df['روز کاری'].fillna(0).astype(int)
+    print("Added روز کاری feature based on تاریخ میلادی.")
+    return df
+
+
 def add_monthly_abc_analysis(df):
-    print("\nStep 3: Performing ABC analysis per Persian month...")
+    print("Step 4: Performing ABC analysis per Persian month...")
     abc_columns = [
         "کلاس ABC", "رتبه کالا در ماه", "مجموع مصرف کالا در ماه",
         "تعداد تراکنش کالا در ماه", "سهم درصد کالا از مصرف ماه", "درصد تجمعی ماه"
@@ -226,7 +242,7 @@ def add_monthly_abc_analysis(df):
 
 
 def reorder_columns(df):
-    print("\nStep 4: Reordering columns...")
+    print("Step 5: Reordering columns...")
     base_cols = [
         PERSIAN_DATE_COL, "انبار", PRODUCT_CODE_COL, "نام کالا", "واحد سنجش",
         QTY_COL, "طرف مقابل", "محل مصرف", "نوع سند", "وضعیت", "ماهیت کالا"
@@ -234,7 +250,7 @@ def reorder_columns(df):
 
     date_cols = [
         "سال شمسی", "ماه شمسی", "نام ماه شمسی", "روز شمسی", "فصل شمسی",
-        "تاریخ میلادی", "سال میلادی", "ماه میلادی", "روز میلادی", "روز هفته میلادی"
+        "تاریخ میلادی", "سال میلادی", "ماه میلادی", "روز میلادی", "روز هفته میلادی", "روز کاری"
     ]
 
     abc_cols = [
@@ -261,6 +277,8 @@ def main():
     rows_after_product_cleaning = len(df)
 
     df = add_date_features(df)
+
+    df = add_working_day_features(df, WORKING_DAY_FILE)
 
     rows_before_date_drop = len(df)
     df = df.dropna(subset=["تاریخ میلادی", "ماه شمسی"]).reset_index(drop=True)
@@ -295,6 +313,7 @@ def main():
     print(df["کلاس ABC"].value_counts(dropna=False))
     print("\nFinal columns:")
     print(list(df.columns))
+    print("Process finished successfully.")
 
 
 if __name__ == "__main__":
