@@ -8,7 +8,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.stats import pearsonr, spearmanr
-from sklearn.metrics import silhouette_score, davies_bouldin_score, mutual_info_regression
+from sklearn.metrics import silhouette_score, davies_bouldin_score
+from sklearn.feature_selection import mutual_info_regression
 from sklearn.feature_selection import SelectKBest, f_regression, RFE
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 from sklearn.linear_model import Lasso, Ridge, ElasticNet
@@ -475,7 +476,20 @@ class FeatureImportanceAnalyzer:
         # Use Random Forest as estimator
         estimator = RandomForestRegressor(n_estimators=100, random_state=42)
         
-        rfe = RFE(estimator=estimator, n_features_to_select=n_features_to_select, step=1)
+        # Check if we have enough features for RFE
+        if X_scaled.shape[1] < 2:
+            print("RFE requires at least 2 features. Skipping...")
+            rfe_df = pd.DataFrame({
+                'Feature': self.numeric_cols,
+                'Selected': [True]*len(self.numeric_cols),
+                'Ranking': [1]*len(self.numeric_cols)
+            })
+            return rfe_df, self.numeric_cols
+        
+        # Adjust n_features_to_select if needed
+        actual_n_features = min(n_features_to_select, X_scaled.shape[1])
+        
+        rfe = RFE(estimator=estimator, n_features_to_select=actual_n_features, step=1)
         rfe.fit(X_scaled, y_clean)
         
         # Create ranking DataFrame

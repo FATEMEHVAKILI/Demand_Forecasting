@@ -1,4 +1,39 @@
-(feature_importance.py is a source file, so no need to ignore it)
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-# No build artifacts, dependencies, or temp files detected
-# Source file changes only
+# Data/ML specific
+*.csv
+*.json
+*.png
+
+# Dependencies
+.venv/
+venv/
+env/
+.env
+.env.local
+.env.*
+
+# Logs
+*.log
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+```

@@ -738,7 +738,7 @@ class TimeSeriesPredictor:
         """Run complete forecasting analysis"""
         print(f'\n{"#"*80}')
         print("# COMPLETE TIME SERIES FORECASTING ANALYSIS")
-        print(f"{"#"*80}\n')
+        print('#'*80 + '\n')
         
         # Step 1: Load data
         self.load_and_preprocess_data()
