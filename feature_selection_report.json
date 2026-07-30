@@ -1,0 +1,50 @@
+{
+  "total_features_analyzed": 1,
+  "selected_features_count": 2,
+  "selected_features": [
+    "WorkingDay",
+    "Weight"
+  ],
+  "methods_used": [
+    "pearson_correlation",
+    "spearman_correlation",
+    "mutual_information",
+    "random_forest",
+    "extra_trees",
+    "tree_average",
+    "lasso",
+    "ridge",
+    "elasticnet"
+  ],
+  "feature_rankings": {
+    "pearson_correlation": [
+      "Weight",
+      "WorkingDay"
+    ],
+    "spearman_correlation": [
+      "Weight",
+      "WorkingDay"
+    ],
+    "mutual_information": [
+      "WorkingDay"
+    ],
+    "random_forest": [
+      "WorkingDay"
+    ],
+    "extra_trees": [
+      "WorkingDay"
+    ],
+    "tree_average": [
+      "WorkingDay"
+    ],
+    "lasso": [
+      "WorkingDay"
+    ],
+    "ridge": [
+      "WorkingDay"
+    ],
+    "elasticnet": [
+      "WorkingDay"
+    ]
+  }
+}
