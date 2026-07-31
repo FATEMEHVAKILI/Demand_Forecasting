@@ -11,6 +11,7 @@ A comprehensive machine learning-based demand forecasting system for inventory m
 - [Usage](#usage)
 - [Input Data Format](#input-data-format)
 - [Output Files](#output-files)
+- [PowerBI Dashboards](#powerbi-dashboards)
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [Workflow](#workflow)
@@ -190,6 +191,59 @@ Dashboard-ready data with:
 | **PowerBI_Data** | Complete processed data with all features |
 | **ABC_Analysis** | Monthly ABC classification results |
 
+## 📊 PowerBI Dashboards
+
+The project includes PowerBI dashboards for visualizing demand forecasting results, ABC analysis, and consumption reports. Dashboard screenshots are available in the [`Dashboards`](Dashboards/) directory.
+
+### Available Dashboards
+
+<!-- Add your dashboard images to the /Dashboards folder and reference them below -->
+
+#### 1. Demand Forecasting Overview
+
+![Demand Forecasting Dashboard](Dashboards/forecast_overview.png)
+
+*Forecasting comparison across different models for total demand*
+
+#### 2. ABC Analysis Dashboard
+
+![ABC Analysis Dashboard](Dashboards/abc_analysis.png)
+
+*Monthly ABC classification visualization with Pareto charts*
+
+#### 3. Product-Level Forecasting
+
+![Product Forecast Dashboard](Dashboards/product_forecast.png)
+
+*Detailed product-level forecasts with historical trends*
+
+#### 4. Consumption Report
+
+![Consumption Report](Dashboards/consumption_report.png)
+
+*Monthly consumption patterns and trends analysis*
+
+#### 5. Model Performance Comparison
+
+![Model Comparison](Dashboards/model_comparison.png)
+
+*Side-by-side comparison of MAE, RMSE, and MAPE across all models*
+
+### How to Use the PowerBI Dashboards
+
+1. **Generate the data**: Run `python main.py` to create `PowerBI_Data.xlsx`
+2. **Open PowerBI Desktop**: Import the generated Excel file
+3. **Load the dashboard**: Open the `.pbix` file (if provided) or create new visualizations
+4. **Refresh data**: When new data is available, re-run the script and refresh the PowerBI dataset
+
+### Recommended Visualizations
+
+- **Line Charts**: For forecasting trends comparison
+- **Bar Charts**: For ABC classification distribution
+- **Matrix Tables**: For detailed product-level data
+- **KPI Cards**: For key metrics (MAE, RMSE, MAPE)
+- **Slicers**: For filtering by month, product class, or warehouse
+
 ## 🗂️ Project Structure
 
 ```
@@ -199,7 +253,13 @@ Dashboard-ready data with:
 ├── Data.xlsx              # Input: Historical data (required)
 ├── WorkingDay.csv         # Input: Working days calendar (required)
 ├── Forecast_Results.xlsx  # Output: Forecasting results (generated)
-└── PowerBI_Data.xlsx      # Output: PowerBI-ready data (generated)
+├── PowerBI_Data.xlsx      # Output: PowerBI-ready data (generated)
+└── Dashboards/            # Directory for PowerBI dashboard screenshots
+    ├── forecast_overview.png    # Total demand forecasting comparison
+    ├── abc_analysis.png         # ABC classification visualization
+    ├── product_forecast.png     # Product-level forecasts
+    ├── consumption_report.png   # Consumption patterns analysis
+    └── model_comparison.png     # Model performance metrics
 ```
 
 ## ⚙️ Configuration
