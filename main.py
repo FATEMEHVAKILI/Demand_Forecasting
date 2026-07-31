@@ -140,6 +140,14 @@ def calculate_metrics(y_true, y_pred):
     }
 
 
+def create_sequences(X, y, seq_length):
+    Xs, ys = [], []
+    for i in range(len(X) - seq_length):
+        Xs.append(X[i:(i + seq_length)])
+        ys.append(y[i + seq_length])
+    return np.array(Xs), np.array(ys)
+
+
 def generate_persian_month_list(last_gregorian_date, horizon=6):
     last_date = pd .to_datetime(last_gregorian_date)
     persian_months = []
@@ -602,20 +610,18 @@ def train_selected_models(X_train, y_train, X_test, y_test,
     return models, metrics_df
 
 
-def train_bilstm(X_train, y_train, X_test, y_test, input_size, epochs=20):
-
+def train_bilstm(X_train, y_train, X_test, y_test, input_size, seq_length=3, epochs=10):
     if not TORCH_AVAILABLE:
         return None, None, None, None, None, None
 
-    device = torch .device("cuda"if torch .cuda .is_available()else "cpu")
-
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     param_grid = [
         {'hidden_size': 32, 'num_layers': 1, 'dropout': 0.1,
-         'learning_rate': 0.01, 'batch_size': 32},
+            'learning_rate': 0.01, 'batch_size': 32},
         {'hidden_size': 64, 'num_layers': 2, 'dropout': 0.2,
-         'learning_rate': 0.005, 'batch_size': 32},
+            'learning_rate': 0.005, 'batch_size': 32},
         {'hidden_size': 128, 'num_layers': 2, 'dropout': 0.3,
-         'learning_rate': 0.001, 'batch_size': 64}
+            'learning_rate': 0.001, 'batch_size': 64}
     ]
 
     best_model = None
@@ -625,19 +631,27 @@ def train_bilstm(X_train, y_train, X_test, y_test, input_size, epochs=20):
     best_test_preds = None
     best_test_actuals = None
 
+    if len(X_train) <= seq_length or len(X_test) <= seq_length:
+        return None, None, None, None, None, None
+
     for params in param_grid:
         scaler, y_scaler = MinMaxScaler(), MinMaxScaler()
-        X_train_scaled = scaler .fit_transform(X_train)
-        X_test_scaled = scaler .transform(X_test)
-        y_train_scaled = y_scaler .fit_transform(y_train .reshape(-1, 1))
-        y_test_scaled = y_scaler .transform(y_test .reshape(-1, 1))
 
-        X_train_tensor = torch .FloatTensor(X_train_scaled .reshape(
-            X_train_scaled .shape[0], 1, X_train_scaled .shape[1])).to(device)
-        y_train_tensor = torch .FloatTensor(y_train_scaled).to(device)
-        X_test_tensor = torch .FloatTensor(X_test_scaled .reshape(
-            X_test_scaled .shape[0], 1, X_test_scaled .shape[1])).to(device)
-        y_test_tensor = torch .FloatTensor(y_test_scaled).to(device)
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        y_train_scaled = y_scaler.fit_transform(
+            y_train.reshape(-1, 1)).flatten()
+        y_test_scaled = y_scaler.transform(y_test.reshape(-1, 1)).flatten()
+
+        X_train_seq, y_train_seq = create_sequences(
+            X_train_scaled, y_train_scaled, seq_length)
+        X_test_seq, y_test_seq = create_sequences(
+            X_test_scaled, y_test_scaled, seq_length)
+
+        X_train_tensor = torch.FloatTensor(X_train_seq).to(device)
+        y_train_tensor = torch.FloatTensor(y_train_seq).unsqueeze(1).to(device)
+        X_test_tensor = torch.FloatTensor(X_test_seq).to(device)
+        y_test_tensor = torch.FloatTensor(y_test_seq).unsqueeze(1).to(device)
 
         model = BiLSTMRegressor(
             input_size=input_size,
@@ -646,34 +660,33 @@ def train_bilstm(X_train, y_train, X_test, y_test, input_size, epochs=20):
             dropout=params['dropout']
         ).to(device)
 
-        criterion = nn .L1Loss()
-        optimizer = optim .Adam(model .parameters(),
-                                lr=params['learning_rate'])
-        train_loader = DataLoader(TensorDataset(
-            X_train_tensor, y_train_tensor), batch_size=params['batch_size'], shuffle=True)
+        criterion = nn.L1Loss()
+        optimizer = optim.Adam(model.parameters(), lr=params['learning_rate'])
+        train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor),
+                                  batch_size=params['batch_size'], shuffle=True)
 
-        model .train()
+        model.train()
         for epoch in range(epochs):
             for batch_X, batch_y in train_loader:
-                optimizer .zero_grad()
+                optimizer.zero_grad()
                 loss = criterion(model(batch_X), batch_y)
-                loss .backward()
-                optimizer .step()
+                loss.backward()
+                optimizer.step()
 
-        model .eval()
-        with torch .no_grad():
+        model.eval()
+        with torch.no_grad():
             pred_scaled = model(X_test_tensor).cpu().numpy()
-            pred = y_scaler .inverse_transform(pred_scaled)
-            actual = y_scaler .inverse_transform(y_test_scaled)
-        current_mae = mean_absolute_error(actual .flatten(), pred .flatten())
+            pred = y_scaler.inverse_transform(pred_scaled)
+            actual = y_scaler.inverse_transform(y_test_tensor.cpu().numpy())
 
+        current_mae = mean_absolute_error(actual.flatten(), pred.flatten())
         if current_mae < best_mae:
             best_mae = current_mae
             best_model = model
             best_scaler = scaler
             best_y_scaler = y_scaler
-            best_test_preds = pred .flatten()
-            best_test_actuals = actual .flatten()
+            best_test_preds = pred.flatten()
+            best_test_actuals = actual.flatten()
 
     metrics = calculate_metrics(best_test_actuals, best_test_preds)
     return best_model, best_scaler, best_y_scaler, metrics, best_test_actuals, best_test_preds
@@ -740,57 +753,62 @@ def forecast_ml_products(panel, model, model_name, selected_features, horizon):
     return pd .DataFrame(records)
 
 
-def forecast_bilstm_products(panel, selected_features, horizon):
-
+def forecast_bilstm_products(panel, selected_features, horizon, seq_length=3):
     if not TORCH_AVAILABLE:
-        return pd .DataFrame(), pd .DataFrame(), None
+        return pd.DataFrame(), pd.DataFrame(), None
 
     records = []
     per_product_metrics = []
     all_test_actuals = []
     all_test_preds = []
-
-    future_months = pd .date_range(panel[MONTH_START_COL].max()+pd .DateOffset(months=1),
-                                   periods=horizon, freq="MS")
+    future_months = pd.date_range(panel[MONTH_START_COL].max() + pd.DateOffset(months=1),
+                                  periods=horizon, freq="MS")
 
     for product_code in panel[PRODUCT_CODE_COL].unique():
         product_data = panel[panel[PRODUCT_CODE_COL] ==
                              product_code].sort_values(MONTH_START_COL)
-        if product_data["original_target"].sum() <= 0 or len(product_data) < 6:
+
+        if product_data["original_target"].sum() <= 0 or len(product_data) < (seq_length + 4):
             continue
+
         X = product_data[selected_features].fillna(0).values
         y = product_data["target"].values
-        split_idx = int(len(X)*0.8)
-        if split_idx < 4 or len(X)-split_idx < 2:
+
+        split_idx = int(len(X) * 0.8)
+        if split_idx < (seq_length + 2) or len(X) - split_idx < 2:
             continue
 
         model, scaler, y_scaler, test_metrics, test_actuals, test_preds = train_bilstm(
             X[:split_idx], y[:split_idx], X[split_idx:], y[split_idx:],
-            input_size=X .shape[1], epochs=10
+            input_size=X.shape[1], seq_length=seq_length, epochs=10
         )
+
         if model is None:
             continue
 
         if test_metrics:
-            per_product_metrics .append(
+            per_product_metrics.append(
                 {"Product": product_code, **test_metrics})
-            all_test_actuals .extend(test_actuals .tolist())
-            all_test_preds .extend(test_preds .tolist())
+            all_test_actuals.extend(test_actuals.tolist())
+            all_test_preds.extend(test_preds.tolist())
 
-        last_features = X[-1:].copy()
-        recent_targets = list(product_data["target"].values[-3:])
-        device = next(model .parameters()).device
+        X_scaled_full = scaler.transform(X)
+        last_seq = X_scaled_full[-seq_length:].copy()
+        recent_targets = list(y[-seq_length:])
+
+        device = next(model.parameters()).device
         product_name = product_data["نام کالا"].iloc[-1]
 
         for horizon_step, month_start in enumerate(future_months, start=1):
-            last_scaled = scaler .transform(last_features)
-            with torch .no_grad():
-                pred = model(torch .FloatTensor(
-                    last_scaled .reshape(1, 1, last_scaled .shape[1])).to(device)).cpu().numpy()
-                predicted = max(0.0, y_scaler .inverse_transform(pred)[0, 0])
+            input_tensor = torch.FloatTensor(last_seq).unsqueeze(0).to(device)
+
+            with torch.no_grad():
+                pred_scaled = model(input_tensor).cpu().numpy()
+                predicted = max(
+                    0.0, y_scaler.inverse_transform(pred_scaled)[0, 0])
 
             persian = get_persian_features(month_start)
-            records .append({
+            records.append({
                 PRODUCT_CODE_COL: product_code,
                 "نام کالا": product_name,
                 "ds": month_start,
@@ -799,25 +817,37 @@ def forecast_bilstm_products(panel, selected_features, horizon):
                 "forecast": predicted,
                 "Model": "Bi-LSTM"
             })
-            recent_targets .append(predicted)
-            if len(recent_targets) > 3:
-                recent_targets .pop(0)
+
+            recent_targets.append(predicted)
+            if len(recent_targets) > seq_length:
+                recent_targets.pop(0)
+            next_row = last_seq[-1].copy()
 
             if "lag_1" in selected_features:
-                last_features[0][selected_features .index("lag_1")] = predicted
+                next_row[selected_features.index(
+                    "lag_1")] = recent_targets[-1] if len(recent_targets) >= 1 else 0.0
             if "lag_2" in selected_features:
-                last_features[0][selected_features .index(
-                    "lag_2")] = last_features[0][selected_features .index("lag_1")]
+                next_row[selected_features.index(
+                    "lag_2")] = recent_targets[-2] if len(recent_targets) >= 2 else 0.0
+            if "lag_3" in selected_features:
+                next_row[selected_features.index(
+                    "lag_3")] = recent_targets[-3] if len(recent_targets) >= 3 else 0.0
             if "rolling_mean_3" in selected_features:
-                last_features[0][selected_features .index(
-                    "rolling_mean_3")] = float(np .mean(recent_targets))
+                next_row[selected_features.index("rolling_mean_3")] = float(
+                    np.mean(recent_targets[-3:]))
+            if "rolling_std_3" in selected_features:
+                next_row[selected_features.index("rolling_std_3")] = float(
+                    np.std(recent_targets[-3:], ddof=0)) if len(recent_targets) > 1 else 0.0
+
+            next_row_scaled = scaler.transform(next_row.reshape(1, -1))
+            last_seq = np.vstack([last_seq[1:], next_row_scaled])
 
     overall_metrics = None
     if all_test_actuals and all_test_preds:
         overall_metrics = calculate_metrics(
-            np .array(all_test_actuals), np .array(all_test_preds))
+            np.array(all_test_actuals), np.array(all_test_preds))
 
-    return pd .DataFrame(records), pd .DataFrame(per_product_metrics), overall_metrics
+    return pd.DataFrame(records), pd.DataFrame(per_product_metrics), overall_metrics
 
 
 def build_total_forecast_sheet(total, model_forecasts_dict):
@@ -862,29 +892,27 @@ def build_total_forecast_sheet(total, model_forecasts_dict):
 
 
 def main(models_to_train=["XGB"]):
-    print("="*60)
-    print("STARTING FULL WORKFLOW")
-    print("="*60)
 
-    raw_df = pd .read_excel(INPUT_FILE)
-    raw_df .columns = [str(col).strip()for col in raw_df .columns]
+    raw_df = pd.read_excel(INPUT_FILE)
+    raw_df.columns = [str(col).strip() for col in raw_df.columns]
     print(f"Loaded raw data: {raw_df.shape}")
 
     df = clean_base_data(raw_df)
     df = add_full_date_features(df)
     df = add_working_day_features(df, WORKING_DAY_FILE)
-    df = df .dropna(subset=["تاریخ میلادی", "ماه شمسی"]).reset_index(drop=True)
+    df = df.dropna(subset=["تاریخ میلادی", "ماه شمسی"]).reset_index(drop=True)
+    df = df.sort_values(by=PERSIAN_DATE_COL).reset_index(drop=True)
 
-    df = df .sort_values(by=PERSIAN_DATE_COL).reset_index(drop=True)
+    print("Winsorizing outliers before ABC analysis and export...")
+    df = winsorize_outliers(df)
 
     df = add_monthly_abc_analysis(df)
 
-    with pd .ExcelWriter(POWERBI_OUTPUT, engine="openpyxl", mode="w")as writer:
-        df .to_excel(writer, index=False, sheet_name="PowerBI_Data")
-
-        abc_cols = [col for col in df .columns if col in ["ماه شمسی", PRODUCT_CODE_COL, "کلاس ABC", "رتبه کالا در ماه",
-                                                          "مجموع مصرف کالا در ماه", "تعداد تراکنش کالا در ماه",
-                                                          "سهم درصد کالا از مصرف ماه", "درصد تجمعی ماه"]]
+    with pd.ExcelWriter(POWERBI_OUTPUT, engine="openpyxl", mode="w") as writer:
+        df.to_excel(writer, index=False, sheet_name="PowerBI_Data")
+        abc_cols = [col for col in df.columns if col in ["ماه شمسی", "تاریخ شروع ماه میلادی", PRODUCT_CODE_COL, "کلاس ABC", "رتبه کالا در ماه",
+                                                         "مجموع مصرف کالا در ماه", "تعداد تراکنش کالا در ماه",
+                                                         "سهم درصد کالا از مصرف ماه", "درصد تجمعی ماه"]]
         if abc_cols:
             df[abc_cols].drop_duplicates().to_excel(
                 writer, index=False, sheet_name="ABC_Analysis")
@@ -892,32 +920,32 @@ def main(models_to_train=["XGB"]):
             print("Warning: ABC columns not found for export.")
     print(f"PowerBI data and ABC analysis combined into {POWERBI_OUTPUT}")
 
-    df = winsorize_outliers(df)
-
     panel = build_monthly_product_panel(df)
     panel, feature_candidates = prepare_features_for_models(panel)
     print(f"Initial feature candidates: {feature_candidates}")
 
     all_months = sorted(panel[MONTH_START_COL].unique())
-    split_idx = int(len(all_months)*0.8)
+    split_idx = int(len(all_months) * 0.8)
     train_months = all_months[:split_idx]
     test_months = all_months[split_idx:]
+
     train_panel = panel[panel[MONTH_START_COL].isin(train_months)].copy()
     test_panel = panel[panel[MONTH_START_COL].isin(test_months)].copy()
 
     importance_df, selected_features = analyze_feature_importance(
         panel, feature_candidates, target_col="target"
     )
-
     print(f"\nProceeding with {len(selected_features)} selected features.")
+
     X_train = train_panel[selected_features].fillna(0)
     y_train = train_panel["target"]
     X_test = test_panel[selected_features].fillna(0)
     y_test = test_panel["target"]
 
-    total = panel .groupby(MONTH_START_COL, as_index=False)[
+    total = panel.groupby(MONTH_START_COL, as_index=False)[
         "target"].sum().sort_values(MONTH_START_COL).reset_index(drop=True)
-    total = total .rename(columns={"target": "y"})
+    total = total.rename(columns={"target": "y"})
+
     total_train = total[total[MONTH_START_COL].isin(train_months)]
     total_test = total[total[MONTH_START_COL].isin(test_months)]
 
@@ -928,110 +956,114 @@ def main(models_to_train=["XGB"]):
     )
 
     model_forecasts = {}
-    future_dates = pd .date_range(total[MONTH_START_COL].max()+pd .DateOffset(months=1),
-                                  periods=FORECAST_HORIZON, freq="MS")
+    future_dates = pd.date_range(total[MONTH_START_COL].max() + pd.DateOffset(months=1),
+                                 periods=FORECAST_HORIZON, freq="MS")
 
-    for model_name, model in models .items():
+    for model_name, model in models.items():
         if model_name in ["Random Forest", "XGBoost"]:
             prod_forecast = forecast_ml_products(
                 panel, model, model_name, selected_features, FORECAST_HORIZON)
-            if not prod_forecast .empty:
-                total_forecast = prod_forecast .groupby(
+            if not prod_forecast.empty:
+                total_forecast = prod_forecast.groupby(
                     "ds")["forecast"].sum().reset_index()
                 model_forecasts[model_name] = total_forecast
         elif model_name == "Prophet" and PROPHET_AVAILABLE:
-            future = model .make_future_dataframe(
+            future = model.make_future_dataframe(
                 periods=FORECAST_HORIZON, freq="MS")
-            pred = model .predict(future).tail(FORECAST_HORIZON)
-            df_forecast = pd .DataFrame(
+            pred = model.predict(future).tail(FORECAST_HORIZON)
+            df_forecast = pd.DataFrame(
                 {"ds": pred["ds"], "forecast": pred["yhat"]})
             model_forecasts["Prophet"] = df_forecast
         elif model_name == "SARIMA" and SARIMA_AVAILABLE:
-            pred = model .forecast(steps=FORECAST_HORIZON)
-            df_forecast = pd .DataFrame(
-                {"ds": future_dates, "forecast": pred .values})
+            pred = model.forecast(steps=FORECAST_HORIZON)
+            df_forecast = pd.DataFrame(
+                {"ds": future_dates, "forecast": pred.values})
             model_forecasts["SARIMA"] = df_forecast
 
     if "all" in models_to_train or "Bi-LSTM" in models_to_train:
         lstm_prod, _, _ = forecast_bilstm_products(
             panel, selected_features, FORECAST_HORIZON)
-        if not lstm_prod .empty:
-            lstm_total = lstm_prod .groupby(
+        if not lstm_prod.empty:
+            lstm_total = lstm_prod.groupby(
                 "ds")["forecast"].sum().reset_index()
             model_forecasts["Bi-LSTM"] = lstm_total
 
     total_forecast_sheet = build_total_forecast_sheet(total, model_forecasts)
 
     all_product_frames = []
-    for model_name, model in models .items():
+    for model_name, model in models.items():
         if model_name in ["Random Forest", "XGBoost"]:
             prod_fc = forecast_ml_products(
                 panel, model, model_name, selected_features, FORECAST_HORIZON)
-            if not prod_fc .empty:
-                all_product_frames .append(prod_fc)
+            if not prod_fc.empty:
+                all_product_frames.append(prod_fc)
+
     if "all" in models_to_train or "Bi-LSTM" in models_to_train:
         lstm_prod, _, _ = forecast_bilstm_products(
             panel, selected_features, FORECAST_HORIZON)
-        if not lstm_prod .empty:
-            all_product_frames .append(lstm_prod)
+        if not lstm_prod.empty:
+            all_product_frames.append(lstm_prod)
 
-    combined_product = pd .concat(
-        all_product_frames, ignore_index=True)if all_product_frames else pd .DataFrame()
+    combined_product = pd.concat(
+        all_product_frames, ignore_index=True) if all_product_frames else pd.DataFrame()
 
     def format_product(df):
-        if df .empty:
+        if df.empty:
             return df
-        df_out = df .copy()
-        df_out = df_out .rename(
-            columns={"forecast": "Forecasting Value", "Model": "Model Name"})
+        df_out = df.copy()
+        df_out = df_out.rename(columns={
+            "forecast": "Forecasting Value",
+            "Model": "Model Name",
+            "ds": MONTH_START_COL
+        })
 
-        cols = [PRODUCT_CODE_COL, "نام کالا", "ماه شمسی",
-                "Model Name", "Forecasting Value"]
+        cols = [PRODUCT_CODE_COL, "نام کالا", MONTH_START_COL,
+                "ماه شمسی", "Model Name", "Forecasting Value"]
 
-        if "horizon" in df_out .columns:
-            df_out = df_out .drop(columns=["horizon"])
+        if "horizon" in df_out.columns:
+            cols.append("horizon")
+
         return df_out[cols]
 
     ml_fmt = format_product(combined_product[combined_product["Model"].isin(
-        ["Random Forest", "XGBoost"])])if not combined_product .empty else pd .DataFrame()
+        ["Random Forest", "XGBoost"])]) if not combined_product.empty else pd.DataFrame()
     lstm_fmt = format_product(
-        combined_product[combined_product["Model"] == "Bi-LSTM"])if not combined_product .empty else pd .DataFrame()
+        combined_product[combined_product["Model"] == "Bi-LSTM"]) if not combined_product.empty else pd.DataFrame()
     all_products_fmt = format_product(
-        combined_product)if not combined_product .empty else pd .DataFrame()
+        combined_product) if not combined_product.empty else pd.DataFrame()
 
-    all_metrics = ml_eval .copy()
+    all_metrics = ml_eval.copy()
     if "all" in models_to_train or "Bi-LSTM" in models_to_train:
-
         _, _, overall_lstm = forecast_bilstm_products(
             panel, selected_features, FORECAST_HORIZON)
         if overall_lstm is not None:
             lstm_row = {"Model": "Bi-LSTM"}
-            lstm_row .update(overall_lstm)
-            all_metrics = pd .concat(
-                [all_metrics, pd .DataFrame([lstm_row])], ignore_index=True)
+            lstm_row.update(overall_lstm)
+            all_metrics = pd.concat(
+                [all_metrics, pd.DataFrame([lstm_row])], ignore_index=True)
 
     print("\nExporting results...")
-    with pd .ExcelWriter(FORECAST_OUTPUT, engine="openpyxl", mode="w")as writer:
-        total_forecast_sheet .to_excel(
+    with pd.ExcelWriter(FORECAST_OUTPUT, engine="openpyxl", mode="w") as writer:
+        total_forecast_sheet.to_excel(
             writer, index=False, sheet_name="Total_Forecast")
-        if not ml_fmt .empty:
-            ml_fmt .to_excel(writer, index=False,
-                             sheet_name="ML_Product_Forecast")
-        if not lstm_fmt .empty:
-            lstm_fmt .to_excel(writer, index=False,
-                               sheet_name="BiLSTM_Product_Forecast")
-        if not all_products_fmt .empty:
-            all_products_fmt .to_excel(
+        if not ml_fmt.empty:
+            ml_fmt.to_excel(writer, index=False,
+                            sheet_name="ML_Product_Forecast")
+        if not lstm_fmt.empty:
+            lstm_fmt.to_excel(writer, index=False,
+                              sheet_name="BiLSTM_Product_Forecast")
+        if not all_products_fmt.empty:
+            all_products_fmt.to_excel(
                 writer, index=False, sheet_name="All_Products_Forecast")
-        if not all_metrics .empty:
-            all_metrics .to_excel(writer, index=False,
-                                  sheet_name="Model_Evaluation")
-        importance_df .to_excel(writer, index=False,
-                                sheet_name="Feature_Importance")
+        if not all_metrics.empty:
+            all_metrics.to_excel(writer, index=False,
+                                 sheet_name="Model_Evaluation")
+        importance_df.to_excel(writer, index=False,
+                               sheet_name="Feature_Importance")
 
     print(f"\nForecast results saved to {FORECAST_OUTPUT}")
     print("Workflow finished successfully.")
 
 
 if __name__ == "__main__":
-    main(models_to_train=["XGB"])
+    main(models_to_train=["XGB", "RF"])
