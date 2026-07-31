@@ -6,9 +6,6 @@ env/
 .venv/
 
 # Project Data & Outputs
-Data.xlsx
-WorkingDay.csv
-ABC_Analysis.xlsx
 *.xlsx
 *.csv
 
