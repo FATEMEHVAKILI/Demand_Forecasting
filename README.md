@@ -1,4 +1,4 @@
-# AI Assistant - Demand Forecasting System
+# Demand Forecasting System
 
 A comprehensive machine learning-based demand forecasting system for inventory management with support for Persian (Jalali) calendar, ABC analysis, and multiple forecasting models.
 
