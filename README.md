@@ -197,37 +197,23 @@ The project includes PowerBI dashboards for visualizing demand forecasting resul
 
 ### Available Dashboards
 
-<!-- Add your dashboard images to the /Dashboards folder and reference them below -->
-
 #### 1. Demand Forecasting Overview
 
-![Demand Forecasting Dashboard](Dashboards/forecast_overview.png)
+![Demand Forecasting Dashboard](https://github.com/FATEMEHVAKILI/Demand_Forecasting/blob/main/Dashboards/DemandForecasting-images-0.jpg?raw=true)
 
 *Forecasting comparison across different models for total demand*
 
 #### 2. ABC Analysis Dashboard
 
-![ABC Analysis Dashboard](Dashboards/abc_analysis.png)
+![ABC Analysis Dashboard](https://github.com/FATEMEHVAKILI/Demand_Forecasting/blob/main/Dashboards/DemandForecasting-images-1.jpg?raw=true)
 
 *Monthly ABC classification visualization with Pareto charts*
 
-#### 3. Product-Level Forecasting
+#### 3. Product-Level Forecasting & Consumption Report
 
-![Product Forecast Dashboard](Dashboards/product_forecast.png)
+![Product Forecast Dashboard](https://github.com/FATEMEHVAKILI/Demand_Forecasting/blob/main/Dashboards/DemandForecasting-images-2.jpg?raw=true)
 
-*Detailed product-level forecasts with historical trends*
-
-#### 4. Consumption Report
-
-![Consumption Report](Dashboards/consumption_report.png)
-
-*Monthly consumption patterns and trends analysis*
-
-#### 5. Model Performance Comparison
-
-![Model Comparison](Dashboards/model_comparison.png)
-
-*Side-by-side comparison of MAE, RMSE, and MAPE across all models*
+*Detailed product-level forecasts with historical trends and consumption patterns*
 
 ### How to Use the PowerBI Dashboards
 
@@ -255,11 +241,7 @@ The project includes PowerBI dashboards for visualizing demand forecasting resul
 ├── Forecast_Results.xlsx  # Output: Forecasting results (generated)
 ├── PowerBI_Data.xlsx      # Output: PowerBI-ready data (generated)
 └── Dashboards/            # Directory for PowerBI dashboard screenshots
-    ├── forecast_overview.png    # Total demand forecasting comparison
-    ├── abc_analysis.png         # ABC classification visualization
-    ├── product_forecast.png     # Product-level forecasts
-    ├── consumption_report.png   # Consumption patterns analysis
-    └── model_comparison.png     # Model performance metrics
+    └── (Dashboard images hosted on GitHub)
 ```
 
 ## ⚙️ Configuration
