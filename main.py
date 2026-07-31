@@ -426,16 +426,16 @@ def analyze_feature_importance(panel, feature_candidates, target_col="target"):
         except Exception:
             corr_importance .append(0.0)
 
-    mi_importance = mutual_info_regression(X, y, random_state=123)
+    mi_importance = mutual_info_regression(X, y, random_state=42)
 
-    rf = RandomForestRegressor(n_estimators=100, random_state=123, n_jobs=1)
+    rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=1)
     rf .fit(X, y)
     rf_importance = rf .feature_importances_
 
     xgb_importance = np .zeros(len(feature_candidates))
     if XGB_AVAILABLE:
         xgb = XGBRegressor(objective="reg:squarederror",
-                           random_state=123, n_jobs=1, verbosity=0)
+                           random_state=42, n_jobs=1, verbosity=0)
         xgb .fit(X, y)
         xgb_importance = xgb .feature_importances_
 
@@ -466,7 +466,7 @@ def train_selected_models(X_train, y_train, X_test, y_test,
     can_grid = len(X_train) >= 10
 
     if "all" in models_to_train or "RF" in models_to_train:
-        rf = RandomForestRegressor(random_state=123, n_jobs=1)
+        rf = RandomForestRegressor(random_state=42, n_jobs=1)
         param_grid_rf = {
             'n_estimators': [200],
             'max_depth': [3, 5],
@@ -490,7 +490,7 @@ def train_selected_models(X_train, y_train, X_test, y_test,
     if "all" in models_to_train or "XGB" in models_to_train:
         if XGB_AVAILABLE:
             xgb = XGBRegressor(objective="reg:squarederror",
-                               random_state=123, n_jobs=1, verbosity=0)
+                               random_state=42, n_jobs=1, verbosity=0)
             param_grid_xgb = {
                 'n_estimators': [100, 200],
                 'max_depth': [3, 5, 7],
