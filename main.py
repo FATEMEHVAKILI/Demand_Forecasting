@@ -428,7 +428,7 @@ def analyze_feature_importance(panel, feature_candidates, target_col="target"):
 
     mi_importance = mutual_info_regression(X, y, random_state=123)
 
-    rf = RandomForestRegressor(n_estimators=100, random_state=123, n_jobs=-1)
+    rf = RandomForestRegressor(n_estimators=100, random_state=123, n_jobs=1)
     rf .fit(X, y)
     rf_importance = rf .feature_importances_
 
@@ -466,16 +466,16 @@ def train_selected_models(X_train, y_train, X_test, y_test,
     can_grid = len(X_train) >= 10
 
     if "all" in models_to_train or "RF" in models_to_train:
-        rf = RandomForestRegressor(random_state=123, n_jobs=-1)
+        rf = RandomForestRegressor(random_state=123, n_jobs=1)
         param_grid_rf = {
-            'n_estimators': [100, 200],
-            'max_depth': [5, 10, None],
-            'min_samples_leaf': [1, 3, 5],
+            'n_estimators': [200],
+            'max_depth': [3, 5],
+            'min_samples_leaf': [1, 3],
             'min_samples_split': [2, 5]
         }
         if can_grid:
             rf_search = GridSearchCV(
-                rf, param_grid_rf, scoring="neg_mean_absolute_error", cv=3, n_jobs=-1)
+                rf, param_grid_rf, scoring="neg_mean_absolute_error", cv=3, n_jobs=1)
             rf_search .fit(X_train, y_train)
             best_rf = rf_search .best_estimator_
             print(f"RF best params: {rf_search.best_params_}")
@@ -891,7 +891,7 @@ def build_total_forecast_sheet(total, model_forecasts_dict):
     return combined
 
 
-def main(models_to_train=["XGB"]):
+def main(models_to_train=["XGB", "RF"]):
 
     raw_df = pd.read_excel(INPUT_FILE)
     raw_df.columns = [str(col).strip() for col in raw_df.columns]
